@@ -121,7 +121,6 @@ else
 	export APP_ICON := $(TOPDIR)/$(ICON)
 endif
 
-IMAGEMAGICK	:=	$(shell which convert)
 
 ifeq ($(strip $(NO_SMDH)),)
 	export _3DSXFLAGS += --smdh=$(CURDIR)/$(TARGET).smdh
@@ -129,12 +128,26 @@ endif
 
 .PHONY: $(BUILD) clean all
 
+
 #---------------------------------------------------------------------------------
+IMAGEMAGICK	:=	$(shell which magick)
+
+ifneq ($(strip $(IMAGEMAGICK)),)
+
+HAVE_CONVERT	:=	yes
+export IMAGEMAGICK
+
+else
+
+IMAGEMAGICK	:=	$(shell which convert)
+
 ifneq ($(strip $(IMAGEMAGICK)),)
 ifeq ($(findstring System32,$(IMAGEMAGICK)),)
 
 HAVE_CONVERT	:=	yes
+export IMAGEMAGICK
 
+endif
 endif
 endif
 
@@ -188,8 +201,6 @@ $(OUTPUT).elf	:	$(OFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
-
-
 #---------------------------------------------------------------------------------
 %_bgr.h %.bgr.o: %.bgr
 #---------------------------------------------------------------------------------
@@ -200,9 +211,10 @@ $(OUTPUT).elf	:	$(OFILES)
 %.bgr: %.png
 #---------------------------------------------------------------------------------
 	@echo $(notdir $<)
-	@convert $< -rotate 90 $@
+	@"$(IMAGEMAGICK)" $< -rotate 90 $@
 
 -include $(DEPENDS)
+
 
 #---------------------------------------------------------------------------------------
 endif
