@@ -23,6 +23,7 @@ int main() {
         fprintf(stderr, "httpcInit failed: 0x%08lX\n", ret);
         return -1;
     }
+<<<<<<< HEAD
     u32 *socBuf = (u32*)memalign(0x1000, 0x100000);
     if (socBuf == NULL) {
         fprintf(stderr, "memalign failed\n");
@@ -36,6 +37,9 @@ int main() {
         httpcExit();
         return -1;
     }
+=======
+    socInit((u32*)memalign(0x1000, 0x100000), 0x100000); // socket memory
+>>>>>>> 536aa75 (add curl example)
 
     CURL *curl;
     CURLcode result;
@@ -54,7 +58,7 @@ int main() {
 
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
     curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/KaliLugu/Minicraft3DS/tags");
-    curl_easy_setopt(curl, CURLOPT_CAINFO, "romfs:/cacert.pem"); // <-- romfs: si tu utilises le romfs
+    curl_easy_setopt(curl, CURLOPT_CAINFO, "romfs:/cacert.pem");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_chunk);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&response);
 
@@ -67,6 +71,13 @@ int main() {
     }
 
     printf("%s\n", response.string);
+    char *pos = strstr(response.string, "name");
+    if (pos != NULL) {
+        printf("version du jeu a la position %ld et les 5 prochain caractère \n", pos - response.string);
+    } else {
+        printf("Non trouvé\n");
+    }
+
     curl_easy_cleanup(curl);
     free(response.string);
 

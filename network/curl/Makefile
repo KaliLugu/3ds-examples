@@ -169,6 +169,7 @@ romfs/cacert.pem:
 	@echo Fetching CA certificates from https://curl.se/ca/cacert.pem
 	@mkdir -p romfs
 	@curl -L -o $@ https://curl.se/ca/cacert.pem
+
 $(BUILD):
 	@mkdir -p $@
 
