@@ -157,7 +157,7 @@ int main()
 
 	consoleInit(GFX_BOTTOM,NULL);
 
-	ret=http_post("http://httpbin.org/post", "{\"foo\": \"bar\"}");
+	ret=http_post("https://api.github.com/repos/KaliLugu/Minicraft3DS/tags", "{\"foo\": \"bar\"}");
 	printf("return from http_post: %" PRIx32 "\n",ret);
 
 	// Main loop

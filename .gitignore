@@ -8,3 +8,4 @@ lib/
 *.t3x
 *.bcfnt
 *~
+*.pem
