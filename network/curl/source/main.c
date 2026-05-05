@@ -23,7 +23,19 @@ int main() {
         fprintf(stderr, "httpcInit failed: 0x%08lX\n", ret);
         return -1;
     }
-    socInit((u32*)memalign(0x1000, 0x100000), 0x100000); // socket memory
+    u32 *socBuf = (u32*)memalign(0x1000, 0x100000);
+    if (socBuf == NULL) {
+        fprintf(stderr, "memalign failed\n");
+        httpcExit();
+        return -1;
+    }
+    Result socRet = socInit(socBuf, 0x100000); // socket memory
+    if (R_FAILED(socRet)) {
+        fprintf(stderr, "socInit failed: 0x%08lX\n", socRet);
+        free(socBuf);
+        httpcExit();
+        return -1;
+    }
 
     CURL *curl;
     CURLcode result;
