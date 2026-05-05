@@ -22,7 +22,8 @@
 
 // ---- DEFINITIONS ----
 
-static const char *PATH = "romfs:/sample.ogg";  // Path to Ogg Vorbis file to play
+static const char *PATH = "romfs:/sample.ogg";  // Path to Ogg Vorbis file to play romfs
+static const char *SDPATH = "sdmc:/sample.ogg";  // Path to Ogg Vorbis file to play sdmc
 
 static const int THREAD_AFFINITY = -1;           // Execute thread on any core
 static const int THREAD_STACK_SZ = 32 * 1024;    // 32kB stack for audio thread
@@ -261,7 +262,20 @@ int main(int argc, char* argv[]) {
 
     // Open the Ogg Vorbis audio file
     OggVorbis_File vorbisFile;
-    FILE *fh = fopen(PATH, "rb");
+    FILE *fh = fopen(SDPATH, "rb");
+    if(!fh) {
+        printf("Failed to open file: '%s' does not exist or cannot be read, read the default on romfs\n", SDPATH);
+        fh = fopen(PATH, "rb");
+        if(!fh) {
+            printf("Failed to open romfs fallback file: '%s'\n", PATH);
+            waitForInput();
+            gfxExit();
+            ndspExit();
+            romfsExit();
+            return EXIT_FAILURE;
+        }
+    }
+
     int error = ov_open(fh, &vorbisFile, NULL, 0);
     if(error) {
         printf("Failed to open file: error %d (%s)\n", error,
