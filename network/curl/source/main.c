@@ -45,7 +45,6 @@ int main() {
         fprintf(stderr, "HTTP request failed.\n");
         socExit();
         httpcExit();
-        free(socBuf);
         return -1;
     }
 
