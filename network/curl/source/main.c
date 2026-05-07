@@ -43,6 +43,9 @@ int main() {
     curl = curl_easy_init();
     if (curl == NULL) {
         fprintf(stderr, "HTTP request failed.\n");
+        socExit();
+        httpcExit();
+        free(socBuf);
         return -1;
     }
 
@@ -61,6 +64,12 @@ int main() {
         fprintf(stderr, "Error: %s\n", curl_easy_strerror(result));
         curl_easy_cleanup(curl);
         free(response.string);
+        return -1;
+    } else (result = NULL) {
+        fprintf(stderr, "HTTP request failed.\n");
+        socExit();
+        httpcExit();
+        free(socBuf);
         return -1;
     }
 
@@ -82,6 +91,8 @@ int main() {
         }
     }
 
+    socExit();
+    httpcExit();
     romfsExit();
     gfxExit();
     return 0;
