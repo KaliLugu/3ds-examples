@@ -65,12 +65,6 @@ int main() {
         curl_easy_cleanup(curl);
         free(response.string);
         return -1;
-    } else (result = NULL) {
-        fprintf(stderr, "HTTP request failed.\n");
-        socExit();
-        httpcExit();
-        free(socBuf);
-        return -1;
     }
 
     printf("%s\n", response.string);
