@@ -1,5 +1,4 @@
 app_launch
-=======
 
 Example for launching other apps/applets with libctru. Press the A button to launch the app or applet specified in the source.
 
