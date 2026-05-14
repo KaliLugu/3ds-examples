@@ -59,7 +59,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS := -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lctru -lz
+LIBS := -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lz -lctru
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -165,12 +165,8 @@ endif
 
 #---------------------------------------------------------------------------------
 all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
+	@bash $(TOPDIR)/fetch-pem.sh
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-
-romfs/cacert.pem:
-	@echo Fetching CA certificates from https://curl.se/ca/cacert.pem
-	@mkdir -p romfs
-	@curl -L -o $@ https://curl.se/ca/cacert.pem
 
 $(BUILD):
 	@mkdir -p $@

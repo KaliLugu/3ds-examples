@@ -3,128 +3,173 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <time.h>
 #include <3ds.h>
 
-#define NUMTHREADS 3
-#define STACKSIZE (4 * 1024)
-
-volatile bool runThreads = true;
+#define STACKSIZE (64 * 1024)
 
 typedef struct {
     char *string;
     size_t size;
 } Response;
 
+void fix_time() {
+    time_t t = (time_t)(osGetTime() / 1000ULL);
+    struct timespec ts = { .tv_sec = t, .tv_nsec = 0 };
+    clock_settime(CLOCK_REALTIME, &ts);
+}
+
 size_t write_chunk(void *data, size_t size, size_t nmemb, void *userdata);
 
-int threadMain(void *arg) {
-    romfsInit(); // pour avoir accès au certificat SSL
-    // initialise le service réseau de la 3DS
-    Result ret = httpcInit(0);
-    if (R_FAILED(ret)) {
-        return -1;
-    }
-    u32 *socBuf = (u32*)memalign(0x1000, 0x100000);
-    if (socBuf == NULL) {
-        fprintf(stderr, "memalign failed\n");
-        httpcExit();
-        return -1;
-    }
-    Result socRet = socInit(socBuf, 0x100000); // socket memory
-    if (R_FAILED(socRet)) {
-        fprintf(stderr, "socInit failed: 0x%08lX\n", socRet);
-        free(socBuf);
-        httpcExit();
-        return -1;
-    }
-
-    CURL *curl;
-    CURLcode result;
-
-    curl = curl_easy_init();
-    if (curl == NULL) {
-        fprintf(stderr, "HTTP request failed.\n");
-        socExit();
-        httpcExit();
-        return -1;
-    }
+void networkThread(void *arg) {
+    CURL     *curl;
+    CURLcode  result;
 
     Response response;
     response.string = malloc(1);
+    if (response.string == NULL) return;
     response.size = 0;
 
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-    curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/KaliLugu/Minicraft3DS/tags");
-    curl_easy_setopt(curl, CURLOPT_CAINFO, "romfs:/cacert.pem");
+    curl = curl_easy_init();
+    if (curl == NULL) {
+        fprintf(stderr, "curl_easy_init failed.\n");
+        free(response.string);
+        return;
+    }
+
+    FILE *f = fopen("romfs:/cacert.pem", "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        long len = ftell(f);
+        rewind(f);
+        char *cert = malloc(len);
+        fread(cert, 1, len, f);
+        fclose(f);
+
+        struct curl_blob blob;
+        blob.data  = cert;
+        blob.len   = len;
+        blob.flags = CURL_BLOB_COPY;
+        curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, &blob);
+        free(cert);
+    }
+
+    curl_easy_setopt(curl, CURLOPT_USERAGENT,     "libcurl-agent/1.0");
+    curl_easy_setopt(curl, CURLOPT_URL,
+                     "https://api.github.com/repos/KaliLugu/Minicraft3DS/tags");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_chunk);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&response);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA,     (void *)&response);
+
+    printf("send...\n");
 
     result = curl_easy_perform(curl);
     if (result != CURLE_OK) {
-        fprintf(stderr, "Error: %s\n", curl_easy_strerror(result));
+        fprintf(stderr, "curl error: %s\n", curl_easy_strerror(result));
         curl_easy_cleanup(curl);
         free(response.string);
-        return -2;
+        return;
     }
 
-    printf("%s\n", response.string);
-    char *pos = strstr(response.string, "name");
+    // parsing json pour récupérer la version
+    char *pos = strstr(response.string, "\"name\"");
     if (pos != NULL) {
-        printf("version du jeu a la position %ld et les 5 prochain caractere \n", pos - response.string);
+        char *start = strchr(pos + 6, '"');
+        if (start != NULL) {
+            start++;
+            char *end = strchr(start, '"');
+            if (end != NULL) {
+                *end = '\0';
+                printf("Version trouvee : %s\n", start);
+                *end = '"';
+            }
+        }
     } else {
-        printf("Non trouve\n");
+        printf("Version non trouvee.\n");
     }
 
     curl_easy_cleanup(curl);
     free(response.string);
-
-    socExit();
-    httpcExit();
-    romfsExit();
 }
 
 int main() {
     gfxInitDefault();
     consoleInit(GFX_TOP, NULL);
 
-    Thread threads[NUMTHREADS];
-	int i;
-	s32 prio = 0;
-	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-	printf("Main thread prio: 0x%lx\n", prio);
+    // fixe l'heure du processus
+    fix_time();
 
-	for (i = 0; i < NUMTHREADS; i ++)
-	{
-		// The priority of these child threads must be higher (aka the value is lower) than that
-		// of the main thread, otherwise there is thread starvation due to stdio being locked.
-		threads[i] = threadCreate(threadMain, (void*)((i+1)*250), STACKSIZE, prio-1, -2, false);
-		printf("created thread %d: %p\n", i, threads[i]);
-	}
+    // Init des services
+    if (R_FAILED(romfsInit())) {
+        fprintf(stderr, "romfsInit failed\n");
+        gfxExit();
+        return -1;
+    }
+
+    if (R_FAILED(httpcInit(0))) {
+        fprintf(stderr, "httpcInit failed\n");
+        romfsExit();
+        gfxExit();
+        return -1;
+    }
+
+    u32 *socBuf = (u32 *)memalign(0x1000, 0x100000);
+    if (socBuf == NULL) {
+        fprintf(stderr, "memalign failed\n");
+        httpcExit();
+        romfsExit();
+        gfxExit();
+        return -1;
+    }
+
+    if (R_FAILED(socInit(socBuf, 0x100000))) {
+        fprintf(stderr, "socInit failed\n");
+        free(socBuf);
+        httpcExit();
+        romfsExit();
+        gfxExit();
+        return -1;
+    }
+
+    // Priorité du thread principal
+    s32 prio = 0;
+    svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+
+    Thread netThread = threadCreate(networkThread, NULL, STACKSIZE, prio - 1, -1, false);
+    if (netThread == NULL) {
+        fprintf(stderr, "threadCreate failed\n");
+        socExit();
+        free(socBuf);
+        httpcExit();
+        romfsExit();
+        gfxExit();
+        return -1;
+    }
+
+    printf("Thread reseau lance, appuyez sur START pour quitter.\n");
 
     while (aptMainLoop()) {
         gspWaitForVBlank();
         gfxSwapBuffers();
         hidScanInput();
 
-        u32 kDown = hidKeysDown();
-        if (kDown & KEY_START) break;
+        if (hidKeysDown() & KEY_START) break;
     }
 
-    // tell threads to exit & wait for them to exit
-	runThreads = false;
-	for (i = 0; i < NUMTHREADS; i ++)
-	{
-		threadJoin(threads[i], U64_MAX);
-		threadFree(threads[i]);
-	}
+    // Attent la fin du thread réseau
+    threadJoin(netThread, U64_MAX);
+    threadFree(netThread);
 
+    httpcExit();
+    socExit();
+    free(socBuf);
+    romfsExit();
     gfxExit();
     return 0;
 }
 
 size_t write_chunk(void *data, size_t size, size_t nmemb, void *userdata) {
-    size_t real_size = size * nmemb;
-    Response *response = (Response *)userdata;
+    size_t    real_size = size * nmemb;
+    Response *response  = (Response *)userdata;
 
     char *ptr = realloc(response->string, response->size + real_size + 1);
     if (ptr == NULL)
