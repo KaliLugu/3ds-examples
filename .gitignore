@@ -8,3 +8,5 @@ lib/
 *.t3x
 *.bcfnt
 *~
+*.pem
+.fuse_hidden0000c4890000003e
