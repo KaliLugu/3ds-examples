@@ -6,7 +6,7 @@
 #include <time.h>
 #include <3ds.h>
 
-#define STACKSIZE (64 * 1024)
+#define STACKSIZE (8 * 1024)
 
 typedef struct {
     char *string;
